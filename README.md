@@ -1,2 +1,1 @@
-# flipsmarter
-The website for flipsmarter
+The website for starter.money
