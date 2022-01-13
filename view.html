@@ -317,7 +317,7 @@ async function markInvalidDonations() {
 	const myAddr = await signer.getAddress();
 	const exhubContract = new ethers.Contract(ExHubAddress, ExHubABI, provider).connect(signer);
 	const warn = "<b>This donation offer is not valid, because the donator doesn't have enough coins or revoked this offer.</b>"
-	const revertErr = "execution reverted: donation not enough"
+	const revertErr = "donation not enough"
 	var invalidSum = 0
 	for(var i=0; i<donations.length; i++) {
 		var donation = donations[i]
@@ -338,7 +338,7 @@ async function markInvalidDonations() {
 					campaign.takerAddr_startEndTime, campaign.totalCoinsToTaker,
 					campaign.introHash, [tuple], {from: campaign.takerAddr});
 		} catch(e) {
-			if(e.data && e.data.message == revertErr) {
+			if(e.data && e.data.message.indexOf(revertErr) >= 0) {
 				continue
 			}
 			var elems = document.querySelectorAll(`p[data-index="${i}"]`);
