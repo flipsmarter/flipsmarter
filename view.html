@@ -149,8 +149,8 @@ const EndTimeStart   = 160 + 48
 const CoinTypeStart  = 160 + 48 + 48
 const AmountStart    = 160 + 48 + 48 + 160
 const IntroHashStart = 160 + 48 + 48 + 160 + 96
-const IntroLenStart  = 160 + 48 + 48 + 160 + 96 + 256
-const IntroStart     = 160 + 48 + 48 + 160 + 96 + 256 + 256
+const IntroLenStart  = 160 + 48 + 48 + 160 + 96 + 512
+const IntroStart     = 160 + 48 + 48 + 160 + 96 + 512 + 256
 
 async function init() {
 	if(!connect()) {return;}
@@ -191,7 +191,7 @@ async function init() {
 	campaign.targetBN = ethers.BigNumber.from("0x"+data.slice(AmountStart/4, IntroHashStart/4))
 	campaign.introHash = ethers.BigNumber.from("0x"+data.substr(IntroHashStart/4, 64))
 	const introLen = ethers.BigNumber.from("0x"+data.substr(IntroLenStart/4, 64)).toNumber()
-	campaign.intro = ethers.utils.arrayify("0x"+data.substr(IntroStart/4, introLen))
+	campaign.intro = ethers.utils.arrayify("0x"+data.substr(IntroStart/4, introLen*2))
 	window.campaign = campaign
 
 	const sep20Contract = new ethers.Contract(campaign.coinType, SEP20ABI, provider)
@@ -311,21 +311,13 @@ async function showDonations(filter, symbol, decimals) {
 	if(window.Ongoing) markInvalidDonations()
 }
 
-		//{
-		//	uint amount = donation.amount_dueTime80_v8>>88;
-		//	coinsToTaker = (uint(uint160(coinTypeToTaker))<<96) + amount;
-		//	uint dueTime80_v8 = uint88(donation.amount_dueTime80_v8);
-		//	takerAddr_dueTime80_v8 = (uint(uint160(takerAddr))<<88) + dueTime80_v8;
-		//}
-		//address makerAddr = getSigner(0/*zero coinsToMaker*/, coinsToTaker, campaignID,
-		//			      takerAddr_dueTime80_v8, donation.r, donation.s);
 async function markInvalidDonations() {
 	const provider = new ethers.providers.Web3Provider(window.ethereum);
 	const signer = provider.getSigner();
 	const myAddr = await signer.getAddress();
 	const exhubContract = new ethers.Contract(ExHubAddress, ExHubABI, provider).connect(signer);
 	const warn = "<b>This donation offer is not valid, because the donator doesn't have enough coins or revoked this offer.</b>"
-	const revertErr = "VM Exception while processing transaction: revert donation not enough"
+	const revertErr = "execution reverted: donation not enough"
 	var invalidSum = 0
 	for(var i=0; i<donations.length; i++) {
 		var donation = donations[i]
