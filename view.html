@@ -1,0 +1,493 @@
+<html>
+<head>
+<link rel="icon" href="assets/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<script src="assets/ethers-5.5.2.umd.min.js" type="application/javascript"></script>
+<script src="assets/detect-provider.min.js"></script>
+<script src="assets/attention.js"></script>
+<script src="assets/codec-b64.js"></script>
+<script src="assets/accordion.js"></script>
+<link rel="stylesheet" href="assets/bulma.min.css">
+<link rel="stylesheet" href="assets/attention.css">
+<link rel="stylesheet" href="assets/accordion.css">
+<title>Starter Money</title>
+</head>
+<body style="margin: 0 auto; width: 380px">
+	<p>ID of the Crowdfunding Campaign:<br>
+	<span id="campaignID" style="overflow-wrap: break-word; font-family: monospace"></span></p>
+
+	<p>Status: <b id="status"></b></p>
+
+	<p>Target: <span id="target"></span><a target="_blank" id="coinSymbol"></a></p>
+
+	<p>Start: <span id="startTime"></span></p>
+
+	<p>Deadline: <span id="deadline"></span></p>
+
+	<p>Introduction:<br>
+	<textarea id="intro" class="input is-success is-small" style="height: 100px"
+	readonly></textarea></p>
+	
+<div style="margin: 0 auto; width: 380px" class="js-Accordion" id="accordion">
+    <button data-accordion>I want to donate!</button>
+    <div>
+	<p>How many coins do you donate?<br>
+	<input id="amount" type="number" class="input is-success is-small"></p>
+
+	<p>Your name (optional):<br>
+	<input id="donator" class="input is-success is-small"></p>
+
+	<p>Your blessings (optional): <br>
+	<textarea id="blessings" class="input is-success is-small" style="height: 100px"
+	></textarea></p>
+
+	<p style="font-size: 1px">&nbsp;</p>
+
+	<center><button class="button is-success" onclick="donate()" 
+	>Offer Donation</button><br></center>
+
+	<p style="font-size: 1px">&nbsp;</p>
+    </div>
+    <button data-accordion>All donations</button>
+    <div>
+	    <div id="donationHead">
+		    <p id="progress" style="display: none"
+		    >There are already <span id="donationSum"></span> offered (<b id="percent"></b> completed).</p>
+		    <p id="acceptP" style="display: none"
+		    >Congratulations! You have been offered enough donations and can <a onclick="return acceptDonations()">accept these donations</a> now!</p>
+	    </div>
+	    <div id="donationList">
+	    </div>
+    </div>
+<p style="font-size: 1px">&nbsp;</p>
+</div>
+
+</div>
+<script>
+const MaxAmount = "0x0FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"
+const SEP206Address = "0x0000000000000000000000000000000000002711"
+
+const SEP20ABI = [
+    "function symbol() view returns (string)",
+    "function decimals() view returns (uint8)",
+    "function balanceOf(address account) external view returns (uint256)",
+    "function allowance(address owner, address spender) external view returns (uint256)",
+    "function approve(address spender, uint256 amount) external returns (bool)",
+]
+
+const ExHubAddress = "0x8E81e3f5dC2E95a972b92CaC7BB27ca5a04D7E88"
+
+const ExHubABI = [
+"function getSigner(uint256 coinsToMaker, uint256 coinsToTaker, uint256 campaignID, uint256 takerAddr_dueTime80_v8, bytes32 r, bytes32 s) public view returns (address)",
+"function endCampaign(uint takerAddr_startEndTime, uint totalCoinsToTaker, bytes32 introHash, tuple(uint256 amount_dueTime80_v8, bytes32 r, bytes32 s)[] calldata donations) external",
+"function startCampaign(uint endTime, uint totalCoinsToTaker, bytes calldata intro) external",
+"function isReplay(address makerAddr, uint dueTime) external view returns (bool)",
+"function donate(uint campaignID, uint256 amount_dueTime80_v8, bytes32 r, bytes32 s, string calldata words) external",
+"function addNewDueTime(uint newDueTime) external"
+]
+
+const CampaignStart = ethers.utils.id("CampaignStart(uint256,uint256,uint256,bytes32,bytes)")
+const CampaignSuccess = ethers.utils.id("CampaignSuccess(uint256)")
+const Donate = ethers.utils.id("Donate(uint256,uint256,uint256,bytes32,bytes32,string)")
+
+const Domain = {
+      name: "exchange dapp",
+      version: "v0.1.0",
+      chainId: 10000,
+      verifyingContract: ExHubAddress,
+      salt: ethers.utils.id("Exchange"),
+}
+
+const Types = {
+	Exchange: [
+		{ name: "coinsToMaker", type: "uint256" },
+		{ name: "coinsToTaker", type: "uint256" },
+		{ name: "campaignID", type: "uint256" },
+		{ name: "takerAddr_dueTime80", type: "uint256" },
+	]
+}
+		
+async function connect() {
+	if (typeof window.ethereum === 'undefined') {
+		if (typeof window.web3 !== 'undefined') {
+			window.ethereum = window.web3;
+		} else if (typeof window.TPJSBrigeClient !== 'undefined') {
+			window.ethereum = window.TPJSBrigeClient;
+		} else if (typeof window.imToken !== 'undefined') {
+			window.ethereum = window.imToken;
+		} else {
+			const provider = await detectEthereumProvider();
+			if (provider) {
+				window.ethereum = provider;
+			} else if(IsPC()) {
+				alert("Your browser has not installed a wallet extension (like MetaMask).");
+			} else {
+				alert("Please open this page inside a mobile wallet App.");
+			}
+		}
+	}
+	window.accounts = await window.ethereum.request({method: 'eth_requestAccounts'});
+	if (window.accounts.length == 0) {
+        	window.AlertDlg = new Attention.Alert({title: "Warning",
+        	  content: "Cannot connect to wallet"});
+		return false;
+	}
+	return true;
+}
+
+function timestamp2string(timestamp) {
+  var t = new Date()
+  t.setTime(timestamp)
+  var s = t.toLocaleString("en-US", {hour12: false})
+  return s.slice(0, s.length-3).replace(" 24:", " 00:")
+}
+
+//uint takerAddr_startEndTime, uint totalCoinsToTaker, bytes32 introHash, bytes intro
+const StartTimeStart = 160
+const EndTimeStart   = 160 + 48
+const CoinTypeStart  = 160 + 48 + 48
+const AmountStart    = 160 + 48 + 48 + 160
+const IntroHashStart = 160 + 48 + 48 + 160 + 96
+const IntroLenStart  = 160 + 48 + 48 + 160 + 96 + 256
+const IntroStart     = 160 + 48 + 48 + 160 + 96 + 256 + 256
+
+async function init() {
+	if(!connect()) {return;}
+	var accordion = new Accordion({element: "accordion"})
+
+	const provider = new ethers.providers.Web3Provider(window.ethereum);
+	const signer = provider.getSigner();
+	const network = await provider.getNetwork();
+	if(network.chainId != Domain.chainId) {
+        	window.AlertDlg = new Attention.Alert({title: "Incorrect Network",
+        	  content: "You are not connecting to the smartBCH chain."});
+		return
+	}
+	const myAddr = await signer.getAddress();
+
+	const url = new URL(location.href);
+	const id = url.searchParams.get("id");
+	document.getElementById("campaignID").innerText = id
+
+	var filter = {address: ExHubAddress, topics: [CampaignStart, id]}
+	var toBlock = await provider.getBlockNumber()
+	filter.toBlock = toBlock
+	filter.fromBlock = 0
+	var logs = await provider.getLogs(filter)
+	if(logs.length == 0) {
+        	window.AlertDlg = new Attention.Alert({title: "No Such Campaign",
+        	  content: "Can't find a campaign with id "+id});
+		return
+	} 
+	var data = logs[0].data.substr(2)
+	var campaign = {id: id}
+	campaign.takerAddr_startEndTime = ethers.BigNumber.from("0x"+data.substr(0, 64))
+	campaign.totalCoinsToTaker = ethers.BigNumber.from("0x"+data.substr(64, 64))
+	campaign.takerAddr = ethers.utils.getAddress("0x"+data.slice(0, StartTimeStart/4))
+	campaign.startTime = ethers.BigNumber.from("0x"+data.slice(StartTimeStart/4, EndTimeStart/4)).toNumber()
+	campaign.endTime = ethers.BigNumber.from("0x"+data.slice(EndTimeStart/4, CoinTypeStart/4)).toNumber()
+	campaign.coinType = ethers.utils.getAddress("0x"+data.slice(CoinTypeStart/4, AmountStart/4))
+	campaign.targetBN = ethers.BigNumber.from("0x"+data.slice(AmountStart/4, IntroHashStart/4))
+	campaign.introHash = ethers.BigNumber.from("0x"+data.substr(IntroHashStart/4, 64))
+	const introLen = ethers.BigNumber.from("0x"+data.substr(IntroLenStart/4, 64)).toNumber()
+	campaign.intro = ethers.utils.arrayify("0x"+data.substr(IntroStart/4, introLen))
+	window.campaign = campaign
+
+	const sep20Contract = new ethers.Contract(campaign.coinType, SEP20ABI, provider)
+	try {
+		var symbol = await sep20Contract.symbol()
+		var decimals = await sep20Contract.decimals()
+	} catch(e) {
+		window.AlertDlg = new Attention.Alert({title: "Non-SEP20 Address",
+		  content: `${campaign.coinType} is a valid address but not an SEP20 address`});
+		return
+	}
+	campaign.target = ethers.utils.formatUnits(campaign.targetBN, decimals)*1.0
+	document.getElementById("target").innerText = campaign.target
+	document.getElementById("coinSymbol").innerText = symbol
+	document.getElementById("coinSymbol").href = "https://smartscan.cash/address/"+campaign.coinType
+	document.getElementById("startTime").innerText = timestamp2string(campaign.startTime*1000)
+	document.getElementById("deadline").innerText = timestamp2string(campaign.endTime*1000)
+	document.getElementById("intro").value = new TextDecoder().decode(campaign.intro)
+
+	filter.topics = [CampaignSuccess, id]
+	logs = await provider.getLogs(filter)
+	if(logs.length != 0) {
+		document.getElementById("status").innerText = "Succeeded"
+	} else if(campaign.endTime*1000 < Date.now()) {
+		document.getElementById("status").innerText = "Failed"
+	} else {
+		document.getElementById("status").innerText = "Ongoing"
+		window.Ongoing = true
+		document.getElementById("progress").style.display = "block"
+	}
+
+	showDonations(filter, symbol, decimals)
+}
+
+function decodeAndEscapeHtml(hex) {
+	var unsafe = new TextDecoder().decode(ethers.utils.arrayify(hex))
+	return unsafe
+         .replace(/&/g, "&amp;")
+         .replace(/</g, "&lt;")
+         .replace(/>/g, "&gt;")
+         .replace(/"/g, "&quot;")
+         .replace(/'/g, "&#039;");
+}
+
+//event Donate(uint256 indexed campaignID, uint256 donatorAddr_timestamp, uint256 amount_dueTime80_v8, bytes32 r, bytes32 s, string words);
+const DonatorAddrStart = 8
+const TimestampStart   = 8 + 40
+const AmountDTVStart   = 8 + 40 + 16
+const SigRStart        = 8 + 40 + 16 + 64
+const SigSStart        = 8 + 40 + 16 + 64 + 64
+const WordsLenStart    = 8 + 40 + 16 + 64 + 64 + 128
+const WordsStart       = 8 + 40 + 16 + 64 + 64 + 128 + 64
+
+async function showDonations(filter, symbol, decimals) {
+	const provider = new ethers.providers.Web3Provider(window.ethereum);
+	const signer = provider.getSigner();
+	const myAddr = await signer.getAddress();
+	filter.topics = [Donate, campaign.id]
+	var logs = await provider.getLogs(filter)
+	var donations = []
+	for(var i=0; i<logs.length; i++) {
+		var data = logs[i].data.substr(2)
+		var donation = {valid: true}
+		donation.donatorAddr = ethers.utils.getAddress("0x"+data.substr(DonatorAddrStart, 40))
+		donation.donateTime = ethers.BigNumber.from("0x"+data.substr(TimestampStart, 16)).toNumber()
+		donation.amountBN = ethers.BigNumber.from("0x"+data.substr(AmountDTVStart, (256-88)/4))
+		donation.amount = ethers.utils.formatUnits(donation.amountBN, decimals)*1.0
+		donation.amount_dueTime80_v8 = ethers.BigNumber.from("0x"+data.substr(AmountDTVStart, 64))
+		donation.dueTime80 = ethers.BigNumber.from("0x"+data.substr(AmountDTVStart+(256-88)/4, 20))
+		donation.dueTime80_v8 = ethers.BigNumber.from("0x"+data.substr(AmountDTVStart+(256-88)/4, 22))
+		donation.r = ethers.BigNumber.from("0x"+data.substr(SigRStart, 64))
+		donation.s = ethers.BigNumber.from("0x"+data.substr(SigSStart, 64))
+		donation.donator = "[Anonymous Donator]"
+		donation.blessing = ""
+		const wordsLen = ethers.BigNumber.from("0x"+data.substr(WordsLenStart, 64)).toNumber()
+		const words = decodeAndEscapeHtml("0x"+data.substr(WordsStart, wordsLen*2))
+		const index = words.indexOf("\n")
+		if(index >= 0) {
+			donation.donator = words.slice(0, index)
+			donation.blessing = words.slice(index+1)
+		}
+		donations.push(donation)
+	}
+	donations.sort(function(a,b) {return b.amount - a.amount})
+	var donationList = document.getElementById("donationList")
+	var donationSum = 0
+	for(var i=0; i<donations.length; i++) {
+		var d = donations[i]
+		const t = timestamp2string(d.donateTime*1000)
+		donationSum += d.amount
+		var donator = d.donator
+		if(d.donatorAddr == myAddr) {
+			donator = `I (as ${donator})`
+		}
+		var s = '<p style="font-size: 1px">&nbsp;</p>'
+		s += `<p data-index="${i}">${donator} offered ${d.amount} ${symbol} at ${t}, `
+		if(d.blessing.length != 0) {
+			s+='saying: <span style="white-space: pre;">'+d.blessing+"</span><br>"
+		}
+		if(d.donatorAddr == myAddr && window.Ongoing) {
+			s+=`<a onclick="return revokeDonation(${i});">Revoke My Donation Offer</a>`
+		}
+		s+="</p>"
+		donationList.insertAdjacentHTML("beforeend", s)
+	}
+	document.getElementById("donationSum").innerText = donationSum
+	var percent = donationSum*100.0/campaign.target
+	document.getElementById("percent").innerText = percent.toFixed(1)+"%"
+
+	if(percent >= 100 && myAddr == campaign.takerAddr && window.Ongoing) {
+		document.getElementById("acceptP").style.display = "block"
+	}
+	if(donations.length == 0) {
+		donationList.insertAdjacentHTML("beforeend", "<p>There is no donation yet.</p>")
+	}
+	window.donations = donations
+	if(window.Ongoing) markInvalidDonations()
+}
+
+		//{
+		//	uint amount = donation.amount_dueTime80_v8>>88;
+		//	coinsToTaker = (uint(uint160(coinTypeToTaker))<<96) + amount;
+		//	uint dueTime80_v8 = uint88(donation.amount_dueTime80_v8);
+		//	takerAddr_dueTime80_v8 = (uint(uint160(takerAddr))<<88) + dueTime80_v8;
+		//}
+		//address makerAddr = getSigner(0/*zero coinsToMaker*/, coinsToTaker, campaignID,
+		//			      takerAddr_dueTime80_v8, donation.r, donation.s);
+async function markInvalidDonations() {
+	const provider = new ethers.providers.Web3Provider(window.ethereum);
+	const signer = provider.getSigner();
+	const myAddr = await signer.getAddress();
+	const exhubContract = new ethers.Contract(ExHubAddress, ExHubABI, provider).connect(signer);
+	const warn = "<b>This donation offer is not valid, because the donator doesn't have enough coins or revoked this offer.</b>"
+	const revertErr = "VM Exception while processing transaction: revert donation not enough"
+	var invalidSum = 0
+	for(var i=0; i<donations.length; i++) {
+		var donation = donations[i]
+
+		//const twoPow96 = ethers.BigNumber.from(2).pow(96);
+		//var coinsToTakerBN = ethers.BigNumber.from(campaign.coinType);
+		//coinsToTakerBN = coinsToTakerBN.mul(twoPow96).add(donation.amountBN);
+		//const twoPow88 = ethers.BigNumber.from(2).pow(88);
+		//var takerAddr_dueTime80_v8 = ethers.BigNumber.from(campaign.takerAddr);
+		//takerAddr_dueTime80_v8 = takerAddr_dueTime80_v8.mul(twoPow88).add(donation.dueTime80_v8);
+		//var signerAddr = await exhubContract.getSigner(0, coinsToTakerBN, campaign.id,
+		//			takerAddr_dueTime80_v8, donation.r, donation.s);
+		//console.log("signerAddr", signerAddr);
+
+		var tuple = [donation.amount_dueTime80_v8, donation.r, donation.s]
+		try {
+			await exhubContract.estimateGas.endCampaign(
+					campaign.takerAddr_startEndTime, campaign.totalCoinsToTaker,
+					campaign.introHash, [tuple], {from: campaign.takerAddr});
+		} catch(e) {
+			if(e.data && e.data.message == revertErr) {
+				continue
+			}
+			var elems = document.querySelectorAll(`p[data-index="${i}"]`);
+			if(elems.length > 0) {
+				elems[0].insertAdjacentHTML("beforeend", warn)
+			}
+			invalidSum += donation.amount
+			donations[i].valid = false
+		}
+	}
+	if(invalidSum>0) {
+		var donationSum = document.getElementById("donationSum").innerText*1.0
+		donationSum -= invalidSum
+		document.getElementById("donationSum").innerText = donationSum
+		var percent = donationSum*100.0/campaign.target
+		document.getElementById("percent").innerText = percent.toFixed(1)+"%"
+		if(percent < 100 && myAddr == campaign.takerAddr) {
+			document.getElementById("acceptP").style.display = "none"
+		}
+	}
+}
+
+async function revokeDonation(index) {
+	const provider = new ethers.providers.Web3Provider(window.ethereum);
+	const signer = provider.getSigner();
+	const myAddr = await signer.getAddress();
+	const exhubContract = new ethers.Contract(ExHubAddress, ExHubABI, provider).connect(signer);
+	if(await exhubContract.isReplay(myAddr, donations[index].dueTime80)) {
+        	window.AlertDlg = new Attention.Alert({title: "Already Revoked",
+        	  content: "You have already revoked this donation offer before"});
+		return
+	}
+	exhubContract.addNewDueTime(donations[index].dueTime80);
+	return false; //stop following href
+}
+
+async function acceptDonations() {
+	const provider = new ethers.providers.Web3Provider(window.ethereum);
+	const signer = provider.getSigner();
+	var tupleList = []
+	for(var i=0; i<donations.length; i++) {
+		if(!donations[i].valid) continue;
+		tupleList.push([donations[i].amount_dueTime80_v8, donations[i].r, donations[i].s]);
+	}
+	const exhubContract = new ethers.Contract(ExHubAddress, ExHubABI, provider).connect(signer);
+	exhubContract.endCampaign(campaign.takerAddr_startEndTime, campaign.totalCoinsToTaker, campaign.introHash, tupleList);
+	return false; //stop following href
+}
+
+async function donate() {
+	const provider = new ethers.providers.Web3Provider(window.ethereum);
+	const signer = provider.getSigner();
+	const myAddr = await signer.getAddress();
+
+	const sep20Contract = new ethers.Contract(campaign.coinType, SEP20ABI, provider).connect(signer)
+	try {
+		var symbol = await sep20Contract.symbol()
+		var decimals = await sep20Contract.decimals()
+		const balanceAmt = await sep20Contract.balanceOf(myAddr)
+		const allowanceAmt = await sep20Contract.allowance(myAddr, ExHubAddress)
+		var balance = ethers.utils.formatUnits(balanceAmt, decimals)
+		var allowance = ethers.utils.formatUnits(allowanceAmt, decimals)
+	} catch(e) {
+        	window.AlertDlg = new Attention.Alert({title: "Non-SEP20 Address",
+        	  content: `${campaign.coinType} is a valid address but not an SEP20 address`});
+		return
+	}
+	
+	if(!window.Ongoing) {
+        	window.AlertDlg = new Attention.Alert({title: "Cannot Donate",
+        	  content: "This is NOT an ongoing campaign and you cannot donate to it."});
+		console.log(document.getElementById("status").innerText)
+		return
+	}
+	var amount = document.getElementById("amount").value
+	if(amount.length == 0) {
+		window.AlertDlg = new Attention.Alert({title: "No Paid Amount Specified",
+		  content: "You did not specify the amount to pay."});
+		return
+	}
+	amount = amount*1.0
+	if(amount == 0) {
+		window.AlertDlg = new Attention.Alert({title: "Zero Paid Amount Specified",
+		  content: "The total paid amount can't be zero."});
+		return
+	}
+	if(balance < amount) {
+        	window.AlertDlg = new Attention.Alert({title: "Balance Not Enough",
+			content: `Your ${symbol} balance is ${balance}, less than ${amount}`});
+		return
+	}
+	if(allowance < amount) {
+		new Attention.Confirm({title: `Approve ${symbol}`,
+			content: `You did not approve enough ${symbol} to starter.money, do you want to approve now? After sending the approving transaction, you can retry donating.`,
+			onConfirm(component) {
+				sep20Contract.approve(ExHubAddress, MaxAmount)
+			},
+			onCancel(component) {}});
+		return
+	}
+
+	const donator = document.getElementById("donator").value
+	const bless = document.getElementById("blessings").value
+	const words = donator+"\n"+bless
+
+	var expirePicosecondsBN = ethers.BigNumber.from(campaign.endTime).mul(1000*1000*1000*1000)
+	expirePicosecondsBN = expirePicosecondsBN.add(Math.floor(Math.random()*1000*1000*1000*1000))
+		
+	const twoPow96 = ethers.BigNumber.from(2).pow(96);
+	const amtBN = ethers.utils.parseUnits(amount.toString(), decimals)
+	var coinsToTakerBN = ethers.BigNumber.from(campaign.coinType);
+	coinsToTakerBN = coinsToTakerBN.mul(twoPow96).add(amtBN);
+
+	const twoPow80 = ethers.BigNumber.from(2).pow(80);
+	var takerAddr_dueTime80 = ethers.BigNumber.from(campaign.takerAddr);
+	takerAddr_dueTime80 = takerAddr_dueTime80.mul(twoPow80).add(expirePicosecondsBN)
+
+	const msg = {
+		coinsToMaker: 0x0,
+		coinsToTaker: coinsToTakerBN,
+		campaignID: campaign.id,
+		takerAddr_dueTime80: takerAddr_dueTime80,
+	};
+	const sig = await signer._signTypedData(Domain, Types, msg);
+	const r = ethers.BigNumber.from("0x"+sig.substr(2, 64))
+	const s = ethers.BigNumber.from("0x"+sig.substr(2+64, 64))
+	const v = ethers.BigNumber.from("0x"+sig.substr(2+64+64))
+
+	var amount_dueTime80_v8 = amtBN.mul(twoPow80).add(expirePicosecondsBN)
+	amount_dueTime80_v8 = amount_dueTime80_v8.mul(256).add(v)
+	const exhubContract = new ethers.Contract(ExHubAddress, ExHubABI, provider).connect(signer);
+	exhubContract.donate(campaign.id, amount_dueTime80_v8, r, s, words);
+}
+
+window.onload = init;
+
+document.onclick = function() {
+	if(window.AlertDlg) window.AlertDlg.destroy();
+}
+
+</script>
+<iframe id="srcIframe" src="" style="display: none" hidden></iframe>
+</body>
+</html>
