@@ -14,51 +14,49 @@
 <title>Starter Money</title>
 </head>
 <body style="margin: 0 auto; width: 380px">
-	<p>ID of the Crowdfunding Campaign:<br>
-	<span id="campaignID" style="overflow-wrap: break-word; font-family: monospace"></span></p>
-
-	<p>Status: <b id="status"></b></p>
-
-	<p>Target: <span id="target"></span><a target="_blank" id="coinSymbol"></a></p>
-
-	<p>Start: <span id="startTime"></span></p>
-
-	<p>Deadline: <span id="deadline"></span></p>
-
-	<p>Introduction:<br>
-	<textarea id="intro" class="input is-success is-small" style="height: 100px"
-	readonly></textarea></p>
-	
+        <p>ID of the Crowdfunding Campaign:<br>
+        <span id="campaignID" style="overflow-wrap: break-word; font-family: monospace"></span></p>
+        
+        <p>Status: <b id="status"></b></p>
+        
+        <p>Target: <span id="target"></span><a target="_blank" id="coinSymbol"></a></p>
+        
+        <p>Start: <span id="startTime"></span></p>
+        
+        <p>Deadline: <span id="deadline"></span></p>
+        
+        <p>Introduction:<br>
+        <textarea id="intro" class="input is-success is-small" style="height: 100px"
+        readonly></textarea></p>
+        
 <div style="margin: 0 auto; width: 380px" class="js-Accordion" id="accordion">
     <button data-accordion>I want to donate!</button>
     <div>
-	<p>How many coins do you donate?<br>
-	<input id="amount" type="number" class="input is-success is-small"></p>
-
-	<p>Your name (optional):<br>
-	<input id="donator" class="input is-success is-small"></p>
-
-	<p>Your blessings (optional): <br>
-	<textarea id="blessings" class="input is-success is-small" style="height: 100px"
-	></textarea></p>
-
-	<p style="font-size: 1px">&nbsp;</p>
-
-	<center><button class="button is-success" onclick="donate()" 
-	>Offer Donation</button><br></center>
-
-	<p style="font-size: 1px">&nbsp;</p>
+        <p>How many coins do you donate?<br>
+        <input id="amount" type="number" class="input is-success is-small"></p>
+        
+        <p>Your name (optional):<br>
+        <input id="donator" class="input is-success is-small"></p>
+        
+        <p>Your blessings (optional): <br>
+        <textarea id="blessings" class="input is-success is-small" style="height: 100px"
+        ></textarea></p>
+        
+        <p style="font-size: 1px">&nbsp;</p>
+        
+        <center><button class="button is-success" onclick="donate()" 
+        >Offer Donation</button><br></center>
+        
+        <p style="font-size: 1px">&nbsp;</p>
     </div>
     <button data-accordion>All donations</button>
     <div>
-	    <div id="donationHead">
-		    <p id="progress" style="display: none"
-		    >There are already <span id="donationSum"></span> offered (<b id="percent"></b> completed).</p>
-		    <p id="acceptP" style="display: none"
-		    >Congratulations! You have been offered enough donations and can <a onclick="return acceptDonations()">accept these donations</a> now!</p>
-	    </div>
-	    <div id="donationList">
-	    </div>
+            <p id="progress" style="display: none"
+            >There are already <span id="donationSum"></span> offered (<b id="percent"></b> completed).</p>
+            <p id="acceptP" style="display: none"
+            >Congratulations! You have been offered enough donations and can <a onclick="return acceptDonations()">accept these donations</a> now!</p>
+            <div id="donationList">
+            </div>
     </div>
 <p style="font-size: 1px">&nbsp;</p>
 </div>
@@ -215,6 +213,7 @@ async function init() {
 	logs = await provider.getLogs(filter)
 	if(logs.length != 0) {
 		document.getElementById("status").innerText = "Succeeded"
+		document.getElementById("progress").style.display = "block"
 	} else if(campaign.endTime*1000 < Date.now()) {
 		document.getElementById("status").innerText = "Failed"
 	} else {
@@ -308,6 +307,7 @@ async function showDonations(filter, symbol, decimals) {
 	}
 	document.getElementById("donationSum").innerText = (donationSum.toFixed(8)*1.0)
 	var percent = donationSum*100.0/campaign.target
+	console.log(percent)
 	document.getElementById("percent").innerText = percent.toFixed(1)+"%"
 
 	if(percent >= 100 && myAddr == campaign.takerAddr && window.Ongoing) {
