@@ -85,6 +85,7 @@ const ExHubABI = [
 "function addNewDueTime(uint newDueTime) external"
 ]
 
+const Transfer = ethers.utils.id("Transfer(address,address,uint256)")
 const CampaignStart = ethers.utils.id("CampaignStart(uint256,uint256,uint256,bytes32,bytes)")
 const CampaignSuccess = ethers.utils.id("CampaignSuccess(uint256)")
 const Donate = ethers.utils.id("Donate(uint256,uint256,uint256,bytes32,bytes32,string)")
@@ -211,7 +212,9 @@ async function init() {
 
 	filter.topics = [CampaignSuccess, id]
 	logs = await provider.getLogs(filter)
+	var donated = {}
 	if(logs.length != 0) {
+		donated = await getDonated(logs[0].transactionHash)
 		document.getElementById("status").innerText = "Succeeded"
 		document.getElementById("progress").style.display = "block"
 	} else if(campaign.endTime*1000 < Date.now()) {
@@ -222,7 +225,26 @@ async function init() {
 		document.getElementById("progress").style.display = "block"
 	}
 
-	showDonations(filter, symbol, decimals)
+	showDonations(filter, symbol, decimals, donated)
+}
+
+async function getDonated(txHash) {
+	const provider = new ethers.providers.Web3Provider(window.ethereum);
+	const receipt = await provider.getTransactionReceipt(txHash)
+	var donated = {}
+	for(var i=0; i<receipt.logs.length; i++) {
+		const log = receipt.logs[i]
+		if(log.topics[0] != Transfer) {
+			continue
+		}
+		const addrAndValue = log.topics[1].substr(66-160/4)+"-"+log.data.substr(66-96/4)
+		if(!donated[addrAndValue]) {
+			donated[addrAndValue] = 1
+		} else {
+			donated[addrAndValue]++
+		}
+	}
+	return donated
 }
 
 function decodeAndEscapeHtml(hex) {
@@ -244,7 +266,7 @@ const SigSStart        = 8 + 40 + 16 + 64 + 64
 const WordsLenStart    = 8 + 40 + 16 + 64 + 64 + 128
 const WordsStart       = 8 + 40 + 16 + 64 + 64 + 128 + 64
 
-async function showDonations(filter, symbol, decimals) {
+async function showDonations(filter, symbol, decimals, donated) {
 	const provider = new ethers.providers.Web3Provider(window.ethereum);
 	const signer = provider.getSigner();
 	const myAddr = await signer.getAddress();
@@ -255,17 +277,26 @@ async function showDonations(filter, symbol, decimals) {
 	for(var i=0; i<logs.length; i++) {
 		var data = logs[i].data.substr(2)
 		var donation = {valid: true}
-		donation.donatorAddr = ethers.utils.getAddress("0x"+data.substr(DonatorAddrStart, 40))
+		const addrHex = data.substr(DonatorAddrStart, 40)
+		donation.donatorAddr = ethers.utils.getAddress("0x"+addrHex)
 		donation.donateTime = ethers.BigNumber.from("0x"+data.substr(TimestampStart, 16)).toNumber()
+		const amountHex = data.substr(AmountDTVStart+18, (256-88)/4-18)
+		const key = addrHex+"-"+amountHex
+		if(donated[key]) {
+			//console.log("donated!", key, donated[key])
+			donated[key]--
+			donation.donated = true
+		}
 		donation.amountBN = ethers.BigNumber.from("0x"+data.substr(AmountDTVStart, (256-88)/4))
 		if(donation.amountBN.isZero()) continue;
 		donation.amount = ethers.utils.formatUnits(donation.amountBN, decimals)*1.0
 		donation.amount_dueTime80_v8 = ethers.BigNumber.from("0x"+data.substr(AmountDTVStart, 64))
 		const dueTime80Hex = "0x"+data.substr(AmountDTVStart+(256-88)/4, 20)
-		if(allDueTimes.has(dueTime80Hex+donation.donatorAddr)) {
+		const donatorAddrAndDueTimeHex = (donation.donatorAddr+dueTime80Hex).toLowerCase()
+		if(allDueTimes.has(donatorAddrAndDueTimeHex)) {
 			continue
 		}
-		allDueTimes.add(dueTime80Hex+donation.donatorAddr)
+		allDueTimes.add(donatorAddrAndDueTimeHex)
 		donation.dueTime80 = ethers.BigNumber.from(dueTime80Hex)
 		donation.dueTime80_v8 = ethers.BigNumber.from("0x"+data.substr(AmountDTVStart+(256-88)/4, 22))
 		donation.r = ethers.BigNumber.from("0x"+data.substr(SigRStart, 64))
@@ -295,7 +326,11 @@ async function showDonations(filter, symbol, decimals) {
 			donator = `I (as ${donator})`
 		}
 		var s = '<p style="font-size: 1px">&nbsp;</p>'
-		s += `<p data-index="${i}">${donator} offered ${d.amount} ${symbol} at ${t}, `
+		if(d.donated) {
+			s += `<p data-index="${i}">✅${donator} offered ${d.amount} ${symbol} at ${t}, `
+		} else {
+			s += `<p data-index="${i}">${donator} offered ${d.amount} ${symbol} at ${t}, `
+		}
 		if(d.blessing.length != 0) {
 			s+='saying: <span style="white-space: pre;">'+d.blessing+"</span><br>"
 		}
