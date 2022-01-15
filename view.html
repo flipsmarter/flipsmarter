@@ -320,7 +320,7 @@ async function showDonations(filter, symbol, decimals, donated) {
 	for(var i=0; i<donations.length; i++) {
 		var d = donations[i]
 		const t = timestamp2string(d.donateTime*1000)
-		if(Object.keys(donated) == 0 || d.donated) {
+		if(Object.keys(donated).length == 0 || d.donated) {
 			donationSum += d.amount
 		}
 		var donator = d.donator
