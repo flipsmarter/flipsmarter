@@ -264,13 +264,15 @@ async function showDonations(filter, symbol, decimals) {
 		donation.dueTime80_v8 = ethers.BigNumber.from("0x"+data.substr(AmountDTVStart+(256-88)/4, 22))
 		donation.r = ethers.BigNumber.from("0x"+data.substr(SigRStart, 64))
 		donation.s = ethers.BigNumber.from("0x"+data.substr(SigSStart, 64))
-		donation.donator = "[Anonymous Donator]"
+		donation.donator = "[Anonymous]"
 		donation.blessing = ""
 		const wordsLen = ethers.BigNumber.from("0x"+data.substr(WordsLenStart, 64)).toNumber()
 		const words = decodeAndEscapeHtml("0x"+data.substr(WordsStart, wordsLen*2))
 		const index = words.indexOf("\n")
-		if(index >= 0) {
+		if(index > 0) {
 			donation.donator = words.slice(0, index)
+		}
+		if(index >= 0) {
 			donation.blessing = words.slice(index+1)
 		}
 		donations.push(donation)
@@ -315,7 +317,7 @@ async function markInvalidDonations() {
 	const provider = new ethers.providers.Web3Provider(window.ethereum);
 	const signer = provider.getSigner();
 	const myAddr = await signer.getAddress();
-	const exhubContract = new ethers.Contract(ExHubAddress, ExHubABI, provider).connect(signer);
+	const exhubContract = new ethers.Contract(ExHubAddress, ExHubABI, provider)
 	const warn = "<b>This donation offer is not valid, because the donator doesn't have enough coins or revoked this offer.</b>"
 	const revertErr = "donation not enough"
 	var invalidSum = 0
@@ -338,6 +340,7 @@ async function markInvalidDonations() {
 					campaign.takerAddr_startEndTime, campaign.totalCoinsToTaker,
 					campaign.introHash, [tuple], {from: campaign.takerAddr});
 		} catch(e) {
+			console.log(e)
 			if(e.data && e.data.message.indexOf(revertErr) >= 0) {
 				continue
 			}
