@@ -252,6 +252,7 @@ async function showDonations(filter, symbol, decimals) {
 	filter.topics = [Donate, campaign.id]
 	var logs = await provider.getLogs(filter)
 	var donations = []
+	var allDueTimes = new Set()
 	for(var i=0; i<logs.length; i++) {
 		var data = logs[i].data.substr(2)
 		var donation = {valid: true}
@@ -261,7 +262,12 @@ async function showDonations(filter, symbol, decimals) {
 		if(donation.amountBN.isZero()) continue;
 		donation.amount = ethers.utils.formatUnits(donation.amountBN, decimals)*1.0
 		donation.amount_dueTime80_v8 = ethers.BigNumber.from("0x"+data.substr(AmountDTVStart, 64))
-		donation.dueTime80 = ethers.BigNumber.from("0x"+data.substr(AmountDTVStart+(256-88)/4, 20))
+		const dueTime80Hex = "0x"+data.substr(AmountDTVStart+(256-88)/4, 20)
+		if(allDueTimes.has(dueTime80Hex+donation.donatorAddr)) {
+			continue
+		}
+		allDueTimes.add(dueTime80Hex+donation.donatorAddr)
+		donation.dueTime80 = ethers.BigNumber.from(dueTime80Hex)
 		donation.dueTime80_v8 = ethers.BigNumber.from("0x"+data.substr(AmountDTVStart+(256-88)/4, 22))
 		donation.r = ethers.BigNumber.from("0x"+data.substr(SigRStart, 64))
 		donation.s = ethers.BigNumber.from("0x"+data.substr(SigSStart, 64))
