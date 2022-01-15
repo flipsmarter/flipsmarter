@@ -299,7 +299,7 @@ async function showDonations(filter, symbol, decimals) {
 		s+="</p>"
 		donationList.insertAdjacentHTML("beforeend", s)
 	}
-	document.getElementById("donationSum").innerText = donationSum
+	document.getElementById("donationSum").innerText = (donationSum.toFixed(8)*1.0)
 	var percent = donationSum*100.0/campaign.target
 	document.getElementById("percent").innerText = percent.toFixed(1)+"%"
 
