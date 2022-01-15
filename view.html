@@ -451,7 +451,7 @@ async function donate() {
 	expirePicosecondsBN = expirePicosecondsBN.add(Math.floor(Math.random()*1000*1000*1000*1000))
 		
 	const twoPow96 = ethers.BigNumber.from(2).pow(96);
-	const amtBN = ethers.utils.parseUnits(amount.toString(), decimals)
+	const amtBN = ethers.utils.parseUnits(amount.toFixed(8), decimals)
 	var coinsToTakerBN = ethers.BigNumber.from(campaign.coinType);
 	coinsToTakerBN = coinsToTakerBN.mul(twoPow96).add(amtBN);
 
@@ -473,7 +473,12 @@ async function donate() {
 	var amount_dueTime80_v8 = amtBN.mul(twoPow80).add(expirePicosecondsBN)
 	amount_dueTime80_v8 = amount_dueTime80_v8.mul(256).add(v)
 	const exhubContract = new ethers.Contract(ExHubAddress, ExHubABI, provider).connect(signer);
-	exhubContract.donate(campaign.id, amount_dueTime80_v8, r, s, words);
+	const tx = await exhubContract.donate(campaign.id, amount_dueTime80_v8, r, s, words);
+	const resp = await tx.wait()
+	if(resp.status == 1) {
+        	window.AlertDlg = new Attention.Alert({title: "Transaction Succeeded",
+			content: "The donation transaction was successfully executed."});
+	}
 }
 
 window.onload = init;
