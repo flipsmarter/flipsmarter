@@ -328,8 +328,12 @@ async function showDonations(filter, symbol, decimals, donated) {
 			donator = `I (as ${donator})`
 		}
 		var s = '<p style="font-size: 1px">&nbsp;</p>'
-		if(d.donated) {
-			s += `<p data-index="${i}">✅${donator} offered ${d.amount} ${symbol} at ${t}, `
+		if(Object.keys(donated).length != 0) {
+			if(d.donated) {
+				s += `<p data-index="${i}">✅${donator} offered ${d.amount} ${symbol} at ${t}, `
+			} else {
+				s += `<p data-index="${i}">❌${donator} offered ${d.amount} ${symbol} at ${t}, `
+			}
 		} else {
 			s += `<p data-index="${i}">${donator} offered ${d.amount} ${symbol} at ${t}, `
 		}
