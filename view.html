@@ -449,8 +449,8 @@ async function donate() {
 		var decimals = await sep20Contract.decimals()
 		const balanceAmt = await sep20Contract.balanceOf(myAddr)
 		const allowanceAmt = await sep20Contract.allowance(myAddr, ExHubAddress)
-		var balance = ethers.utils.formatUnits(balanceAmt, decimals)
-		var allowance = ethers.utils.formatUnits(allowanceAmt, decimals)
+		var balance = ethers.utils.formatUnits(balanceAmt, decimals)*1.0
+		var allowance = ethers.utils.formatUnits(allowanceAmt, decimals)*1.0
 	} catch(e) {
         	window.AlertDlg = new Attention.Alert({title: "Non-SEP20 Address",
         	  content: `${campaign.coinType} is a valid address but not an SEP20 address`});
