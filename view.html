@@ -307,7 +307,6 @@ async function showDonations(filter, symbol, decimals) {
 	}
 	document.getElementById("donationSum").innerText = (donationSum.toFixed(8)*1.0)
 	var percent = donationSum*100.0/campaign.target
-	console.log(percent)
 	document.getElementById("percent").innerText = percent.toFixed(1)+"%"
 
 	if(percent >= 100 && myAddr == campaign.takerAddr && window.Ongoing) {
