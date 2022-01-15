@@ -316,7 +316,7 @@ async function showDonations(filter, symbol, decimals) {
 		donationList.insertAdjacentHTML("beforeend", "<p>There is no donation yet.</p>")
 	}
 	window.donations = donations
-	if(window.Ongoing) markInvalidDonations()
+	markInvalidDonations()
 }
 
 async function markInvalidDonations() {
