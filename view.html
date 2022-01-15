@@ -258,6 +258,7 @@ async function showDonations(filter, symbol, decimals) {
 		donation.donatorAddr = ethers.utils.getAddress("0x"+data.substr(DonatorAddrStart, 40))
 		donation.donateTime = ethers.BigNumber.from("0x"+data.substr(TimestampStart, 16)).toNumber()
 		donation.amountBN = ethers.BigNumber.from("0x"+data.substr(AmountDTVStart, (256-88)/4))
+		if(donation.amountBN.isZero()) continue;
 		donation.amount = ethers.utils.formatUnits(donation.amountBN, decimals)*1.0
 		donation.amount_dueTime80_v8 = ethers.BigNumber.from("0x"+data.substr(AmountDTVStart, 64))
 		donation.dueTime80 = ethers.BigNumber.from("0x"+data.substr(AmountDTVStart+(256-88)/4, 20))
