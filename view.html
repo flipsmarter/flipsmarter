@@ -152,7 +152,7 @@ const IntroLenStart  = 160 + 48 + 48 + 160 + 96 + 512
 const IntroStart     = 160 + 48 + 48 + 160 + 96 + 512 + 256
 
 async function init() {
-	if(!connect()) {return;}
+	if(!await connect()) {return;}
 	var accordion = new Accordion({element: "accordion"})
 
 	const provider = new ethers.providers.Web3Provider(window.ethereum);
