@@ -89,6 +89,19 @@ const Domain = {
       salt: ethers.utils.id("Exchange"),
 }
 
+function IsPC() {
+       var userAgentInfo = navigator.userAgent;
+       var Agents = new Array("Android", "iPhone", "SymbianOS", "Windows Phone", "iPad", "iPod");
+       var flag = true;
+       for (var v = 0; v < Agents.length; v++) {
+            if (userAgentInfo.indexOf(Agents[v]) > 0) {
+                flag = false;
+                break;
+             }
+       }
+       return flag;
+}
+
 async function connect() {
 	if (typeof window.ethereum === 'undefined') {
 		if (typeof window.web3 !== 'undefined') {
@@ -132,7 +145,7 @@ async function getSEP20AddrAndSymbolAndDecimals(line) {
       }
       if(!trimmed.startsWith("0x") || trimmed.length < 10) {//not hex address, so it is a symbol
          const hexAddr = localStorage.getItem("coin-"+trimmed)
-	 if(trimmed === null) {
+	 if(hexAddr === null) {
            window.AlertDlg = new Attention.Alert({title: "Unknow Coin",
            content: `Cannot find ${trimmed}'s address in history, Please specify its address directly.`});
 	   return [null, null, null]
