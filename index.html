@@ -42,6 +42,9 @@
 
 	<p style="display: none" id="urlP">The Campaign URL is:<br>
 	<pre id="url"></pre></p>
+
+	<center style="font-size: 10px"><br><a href="https://github.com/fadingorders/fadingorders/tree/main/SecurityAuditReport"
+	target="_blank">Security Audit</a></center>
 <script>
 const SEP206Address = "0x0000000000000000000000000000000000002711"
 const SEP206ABI = [
@@ -73,7 +76,7 @@ const CampaignStart = ethers.utils.id("CampaignStart(uint256,uint256,uint256,byt
 const CampaignSuccess = ethers.utils.id("CampaignSuccess(uint256)")
 const Donate = ethers.utils.id("Donate(uint256,uint256,uint256,bytes32,bytes32,string)")
 
-const ExHubAddress = "0x8E81e3f5dC2E95a972b92CaC7BB27ca5a04D7E88"
+const ExHubAddress = "0x351264f24820C91317024B7748C98CA63d6a2781"
 
 const ExHubABI = [
 "function endCampaign(uint takerAddr_startEndTime, uint totalCoinsToTaker, bytes32 introHash, Donation[] calldata donations) external",
